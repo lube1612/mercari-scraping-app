@@ -1,0 +1,34 @@
+Playwrightブラウザのインストール手順
+=====================================
+
+【方法1】install_playwright_browser.py を実行
+-------------------------------------------
+1. Cursorで install_playwright_browser.py を開く
+2. 右上の「▶ Run Python File」ボタンをクリック
+3. インストールが完了するまで待つ
+
+【方法2】Macのターミナルアプリを使用
+-----------------------------------
+1. Finderを開く
+2. 「アプリケーション」→「ユーティリティ」→「ターミナル」を開く
+3. 以下のコマンドを1つずつ入力してEnterキーを押す：
+
+   cd /Users/shimadaeiji/Documents/Cursor/e2e
+   python3 -m playwright install chromium
+
+【方法3】Spotlight検索からターミナルを開く
+-----------------------------------------
+1. Cmd + Space キーを押す
+2. 「ターミナル」と入力してEnter
+3. 以下のコマンドを入力：
+
+   cd /Users/shimadaeiji/Documents/Cursor/e2e
+   python3 -m playwright install chromium
+
+【確認方法】
+-----------
+インストールが完了したら、以下を実行して確認：
+
+   python3 scrape_crowdworks.py
+
+エラーが出ずに実行できれば、インストール成功です。
