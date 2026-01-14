@@ -62,8 +62,10 @@ def run_scraping(search_keyword: str, max_items: int, compare_with_amazon: bool)
             # ブラウザが利用できない場合、インストールを試みる
             st.warning("⚠️ Playwrightブラウザをインストール中...")
             try:
+                # Streamlit Cloudではsudo権限がないため、--with-depsは使わない
+                # ブラウザのみをインストール（システム依存関係は既にインストールされているはず）
                 result = subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
                     capture_output=True,
                     text=True,
                     timeout=600
@@ -75,8 +77,12 @@ def run_scraping(search_keyword: str, max_items: int, compare_with_amazon: bool)
                         browser = p.chromium.launch(headless=True)
                         browser.close()
                 else:
-                    st.error(f"❌ Playwrightブラウザのインストールに失敗しました: {result.stderr}")
-                    st.info("💡 Streamlit Cloudのログを確認してください。")
+                    error_msg = result.stderr or result.stdout or "不明なエラー"
+                    st.error("❌ Playwrightブラウザのインストールに失敗しました")
+                    # エラーメッセージの最初の500文字を表示
+                    if error_msg:
+                        st.code(error_msg[:500])
+                    st.info("💡 ページを更新して、再度お試しください。")
                     return None
             except Exception as install_error:
                 st.error(f"❌ ブラウザのインストール中にエラーが発生しました: {install_error}")
