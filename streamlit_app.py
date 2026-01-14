@@ -9,9 +9,50 @@ import sys
 from pathlib import Path
 import os
 import pandas as pd
+import subprocess
 
 # 親ディレクトリのパスを追加
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Streamlit CloudでPlaywrightブラウザをインストール
+@st.cache_resource
+def install_playwright_browsers():
+    """Playwrightブラウザをインストール（初回のみ実行）"""
+    try:
+        import playwright
+        # ブラウザがインストールされているか確認
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            try:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+                return True  # 既にインストール済み
+            except Exception:
+                # ブラウザがインストールされていない場合、インストール
+                st.info("🔧 Playwrightブラウザをインストール中...（初回のみ、数分かかります）")
+                result = subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+                if result.returncode == 0:
+                    st.success("✅ Playwrightブラウザのインストールが完了しました！")
+                    return True
+                else:
+                    st.warning(f"⚠️ ブラウザのインストールに問題がありました: {result.stderr}")
+                    return False
+    except ImportError:
+        st.error("❌ Playwrightがインストールされていません。requirements.txtを確認してください。")
+        return False
+    except Exception as e:
+        st.warning(f"⚠️ ブラウザの確認中にエラーが発生しました: {e}")
+        return False
+
+# アプリ起動時にブラウザをインストール
+if not install_playwright_browsers():
+    st.error("❌ Playwrightブラウザのインストールに失敗しました。ページを更新してください。")
+    st.stop()
 
 from mercari.scraper import MercariScraper
 from common.utils import save_to_csv
@@ -48,6 +89,17 @@ def run_scraping(search_keyword: str, max_items: int, compare_with_amazon: bool)
     items_data = []
     
     try:
+        # Playwrightブラウザの確認
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+        except Exception as e:
+            st.error(f"❌ Playwrightブラウザが利用できません: {e}")
+            st.info("💡 ページを更新して、ブラウザのインストールを完了してください。")
+            return None
+        
         with MercariScraper(headless=True) as scraper:  # Streamlitではheadless=True推奨
             # 商品一覧ページから商品リンクを取得
             target_url = f"https://www.mercari.com/jp/search/?keyword={search_keyword}"
