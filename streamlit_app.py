@@ -14,61 +14,8 @@ import subprocess
 # 親ディレクトリのパスを追加
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Streamlit CloudでPlaywrightブラウザをインストール
-@st.cache_resource
-def install_playwright_browsers():
-    """Playwrightブラウザをインストール（初回のみ実行）"""
-    try:
-        import playwright
-        from playwright.sync_api import sync_playwright
-        
-        # まずブラウザがインストールされているか確認
-        try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                browser.close()
-                return True  # 既にインストール済み
-        except Exception as e:
-            # ブラウザがインストールされていない場合、インストール
-            st.info("🔧 Playwrightブラウザをインストール中...（初回のみ、数分かかります）")
-            
-            # 依存関係も含めてインストール
-            result = subprocess.run(
-                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
-                capture_output=True,
-                text=True,
-                timeout=600  # 10分のタイムアウト
-            )
-            
-            if result.returncode == 0:
-                st.success("✅ Playwrightブラウザのインストールが完了しました！")
-                # 再度確認
-                try:
-                    with sync_playwright() as p:
-                        browser = p.chromium.launch(headless=True)
-                        browser.close()
-                        return True
-                except Exception as e2:
-                    st.warning(f"⚠️ インストール後もブラウザの起動に失敗しました: {e2}")
-                    return False
-            else:
-                error_msg = result.stderr or result.stdout or "不明なエラー"
-                st.warning(f"⚠️ ブラウザのインストールに問題がありました: {error_msg}")
-                # エラーがあっても続行を試みる
-                return False
-                
-    except ImportError:
-        st.error("❌ Playwrightがインストールされていません。requirements.txtを確認してください。")
-        return False
-    except Exception as e:
-        st.warning(f"⚠️ ブラウザの確認中にエラーが発生しました: {e}")
-        return False
-
-# アプリ起動時にブラウザをインストール（エラーがあっても続行）
-try:
-    install_playwright_browsers()
-except Exception as e:
-    st.warning(f"⚠️ ブラウザのインストールチェック中にエラーが発生しましたが、続行します: {e}")
+# Streamlit CloudでPlaywrightブラウザの確認（起動時はチェックのみ）
+# 実際のインストールは run_scraping 関数内で実行
 
 from mercari.scraper import MercariScraper
 from common.utils import save_to_csv
