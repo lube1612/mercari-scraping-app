@@ -20,28 +20,43 @@ def install_playwright_browsers():
     """Playwrightブラウザをインストール（初回のみ実行）"""
     try:
         import playwright
-        # ブラウザがインストールされているか確認
         from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            try:
+        
+        # まずブラウザがインストールされているか確認
+        try:
+            with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 browser.close()
                 return True  # 既にインストール済み
-            except Exception:
-                # ブラウザがインストールされていない場合、インストール
-                st.info("🔧 Playwrightブラウザをインストール中...（初回のみ、数分かかります）")
-                result = subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    capture_output=True,
-                    text=True,
-                    timeout=300
-                )
-                if result.returncode == 0:
-                    st.success("✅ Playwrightブラウザのインストールが完了しました！")
-                    return True
-                else:
-                    st.warning(f"⚠️ ブラウザのインストールに問題がありました: {result.stderr}")
+        except Exception as e:
+            # ブラウザがインストールされていない場合、インストール
+            st.info("🔧 Playwrightブラウザをインストール中...（初回のみ、数分かかります）")
+            
+            # 依存関係も含めてインストール
+            result = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                capture_output=True,
+                text=True,
+                timeout=600  # 10分のタイムアウト
+            )
+            
+            if result.returncode == 0:
+                st.success("✅ Playwrightブラウザのインストールが完了しました！")
+                # 再度確認
+                try:
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        browser.close()
+                        return True
+                except Exception as e2:
+                    st.warning(f"⚠️ インストール後もブラウザの起動に失敗しました: {e2}")
                     return False
+            else:
+                error_msg = result.stderr or result.stdout or "不明なエラー"
+                st.warning(f"⚠️ ブラウザのインストールに問題がありました: {error_msg}")
+                # エラーがあっても続行を試みる
+                return False
+                
     except ImportError:
         st.error("❌ Playwrightがインストールされていません。requirements.txtを確認してください。")
         return False
@@ -49,10 +64,11 @@ def install_playwright_browsers():
         st.warning(f"⚠️ ブラウザの確認中にエラーが発生しました: {e}")
         return False
 
-# アプリ起動時にブラウザをインストール
-if not install_playwright_browsers():
-    st.error("❌ Playwrightブラウザのインストールに失敗しました。ページを更新してください。")
-    st.stop()
+# アプリ起動時にブラウザをインストール（エラーがあっても続行）
+try:
+    install_playwright_browsers()
+except Exception as e:
+    st.warning(f"⚠️ ブラウザのインストールチェック中にエラーが発生しましたが、続行します: {e}")
 
 from mercari.scraper import MercariScraper
 from common.utils import save_to_csv
@@ -89,16 +105,36 @@ def run_scraping(search_keyword: str, max_items: int, compare_with_amazon: bool)
     items_data = []
     
     try:
-        # Playwrightブラウザの確認
+        # Playwrightブラウザの確認とインストール
         try:
             from playwright.sync_api import sync_playwright
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
                 browser.close()
         except Exception as e:
-            st.error(f"❌ Playwrightブラウザが利用できません: {e}")
-            st.info("💡 ページを更新して、ブラウザのインストールを完了してください。")
-            return None
+            # ブラウザが利用できない場合、インストールを試みる
+            st.warning("⚠️ Playwrightブラウザをインストール中...")
+            try:
+                result = subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                    capture_output=True,
+                    text=True,
+                    timeout=600
+                )
+                if result.returncode == 0:
+                    st.success("✅ ブラウザのインストールが完了しました。再試行します...")
+                    # 再度確認
+                    with sync_playwright() as p:
+                        browser = p.chromium.launch(headless=True)
+                        browser.close()
+                else:
+                    st.error(f"❌ Playwrightブラウザのインストールに失敗しました: {result.stderr}")
+                    st.info("💡 Streamlit Cloudのログを確認してください。")
+                    return None
+            except Exception as install_error:
+                st.error(f"❌ ブラウザのインストール中にエラーが発生しました: {install_error}")
+                st.info("💡 ページを更新して、再度お試しください。")
+                return None
         
         with MercariScraper(headless=True) as scraper:  # Streamlitではheadless=True推奨
             # 商品一覧ページから商品リンクを取得
